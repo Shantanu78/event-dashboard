@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  SUBMITTED
+  VP_APPROVED
+  ADMIN_PENDING
+  ADMIN_PENDING_SENIOR
+  APPROVED
+  REJECTED
+  COMPLETED
+  CLOSED
+}
+
+enum UserRole {
+  PRESIDENT
+  VP_CLUBS
+  ADMIN
+  SENIOR_ADMIN
+  OPSCOMM
+  MARKETING
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(PRESIDENT)
+  clubName      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  events        Event[]   @relation("CreatedBy")
+  approvals     Approval[]
+}
+
+model Event {
+  id             String      @id @default(cuid())
+  name           String
+  description    String?
+  venue          String?
+  eventDate      DateTime?
+  budget         Float       @default(0)
+  isMonetary     Boolean     @default(false)
+  status         EventStatus @default(SUBMITTED)
+  createdById    String
+  createdBy      User        @relation("CreatedBy", fields: [createdById], references: [id])
+  approvals      Approval[]
+  postEventNotes String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  approverId  String
+  approver    User     @relation(fields: [approverId], references: [id])
+  status      String   // "approved" or "rejected"
+  comments    String?
+  createdAt   DateTime @default(now())
+}
