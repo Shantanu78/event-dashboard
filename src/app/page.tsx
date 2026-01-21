@@ -112,9 +112,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="flex flex-col xl:flex-row gap-8">
           {/* Recent Activity */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="flex-1 space-y-4 min-w-0">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Recent Activity</h2>
               <Badge variant="secondary">{recentEvents.length} events</Badge>
@@ -127,7 +127,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="w-full xl:w-80 shrink-0 space-y-6">
             {/* Upcoming Events */}
             <Card>
               <CardHeader>
