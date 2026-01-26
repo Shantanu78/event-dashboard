@@ -1,12 +1,13 @@
 import { Navbar } from "@/components/Navbar";
 import { EventCard } from "@/components/EventCard";
-import { getAllEvents } from "@/lib/mock-data";
+import { getAllEventsFromDB } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { EventStatus } from "@/types";
+import { auth } from "@/lib/auth";
 
-export default function EventsPage() {
-    const events = getAllEvents();
+export default async function EventsPage() {
+    const session = await auth();
+    const events = await getAllEventsFromDB();
 
     const pendingEvents = events.filter((e) =>
         ["SUBMITTED", "VP_APPROVED", "ADMIN_PENDING", "ADMIN_PENDING_SENIOR"].includes(
@@ -21,7 +22,7 @@ export default function EventsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            <Navbar user={null} />
+            <Navbar user={session?.user} />
 
             <main className="container py-8">
                 <div className="mb-8">

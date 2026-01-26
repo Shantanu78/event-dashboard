@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 
 export default function NewEventPage() {
     const router = useRouter();
+    const { data: session } = useSession();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
@@ -40,22 +42,50 @@ export default function NewEventPage() {
             return;
         }
 
+        if (!session?.user) {
+            toast.error("Please sign in to create an event");
+            return;
+        }
+
         setIsSubmitting(true);
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        try {
+            const response = await fetch("/api/events", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    description: formData.description,
+                    venue: formData.venue,
+                    eventDate: formData.eventDate ? new Date(`${formData.eventDate}T${formData.eventTime || "00:00"}`).toISOString() : null,
+                    isMonetary: formData.isMonetary,
+                    budget: formData.budget,
+                    clubName: formData.clubName,
+                }),
+            });
 
-        toast.success("Event submitted successfully!", {
-            description: "Your event is now pending VP approval.",
-        });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Failed to create event");
+            }
 
-        setIsSubmitting(false);
-        router.push("/");
+            toast.success("Event submitted successfully!", {
+                description: "Your event is now pending VP approval.",
+            });
+
+            router.push("/events");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to create event");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            <Navbar user={null} />
+            <Navbar user={session?.user} />
 
             <main className="container py-8 max-w-2xl">
                 <Button

@@ -26,14 +26,15 @@ export default function LoginPage() {
                 redirect: false,
             });
 
-            if (result?.error) {
+            if (result?.error || !result?.ok) {
                 setError("Invalid email or password");
-            } else {
-                window.location.href = "/";
+                setIsLoading(false);
+                return;
             }
+
+            window.location.href = "/";
         } catch {
             setError("An error occurred. Please try again.");
-        } finally {
             setIsLoading(false);
         }
     };

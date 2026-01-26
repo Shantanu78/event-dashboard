@@ -34,13 +34,22 @@ interface NavbarProps {
 }
 
 const NAV_ITEMS = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/events/new", label: "New Event", icon: PlusCircle },
-    { href: "/events", label: "All Events", icon: ClipboardList },
+    { href: "/", label: "Dashboard", icon: LayoutDashboard, roles: null }, // visible to all
+    { href: "/events/new", label: "New Event", icon: PlusCircle, roles: ["PRESIDENT"] },
+    { href: "/events", label: "All Events", icon: ClipboardList, roles: null }, // visible to all
+    { href: "/approvals", label: "Approvals", icon: Users, roles: ["VP_CLUBS", "ADMIN", "SENIOR_ADMIN"] },
 ];
 
 export function Navbar({ user }: NavbarProps) {
     const pathname = usePathname();
+    const userRole = user?.role;
+
+    // Filter nav items based on user role
+    const visibleNavItems = NAV_ITEMS.filter(item => {
+        if (!item.roles) return true; // visible to all
+        if (!userRole) return false; // hide role-restricted items if not logged in
+        return item.roles.includes(userRole);
+    });
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -56,7 +65,7 @@ export function Navbar({ user }: NavbarProps) {
                     </Link>
 
                     <nav className="hidden md:flex items-center gap-1">
-                        {NAV_ITEMS.map((item) => {
+                        {visibleNavItems.map((item) => {
                             const Icon = item.icon;
                             return (
                                 <Link key={item.href} href={item.href}>
@@ -80,9 +89,12 @@ export function Navbar({ user }: NavbarProps) {
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="ghost"
-                                    className="relative h-10 w-10 rounded-full"
+                                    className="relative h-10 gap-2 px-2"
                                 >
-                                    <Avatar className="h-10 w-10">
+                                    <span className="hidden sm:inline-block text-sm font-medium">
+                                        Welcome, {user.name?.split(" ")[0] || "User"}
+                                    </span>
+                                    <Avatar className="h-8 w-8">
                                         <AvatarImage src={user.image || ""} alt={user.name || ""} />
                                         <AvatarFallback>
                                             {user.name?.charAt(0) || "U"}
@@ -128,7 +140,7 @@ export function Navbar({ user }: NavbarProps) {
                         </SheetTrigger>
                         <SheetContent side="right" className="w-64">
                             <nav className="flex flex-col gap-2 mt-8">
-                                {NAV_ITEMS.map((item) => {
+                                {visibleNavItems.map((item) => {
                                     const Icon = item.icon;
                                     return (
                                         <Link key={item.href} href={item.href}>

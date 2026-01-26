@@ -2,7 +2,9 @@ import { Navbar } from "@/components/Navbar";
 import { EventCard } from "@/components/EventCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getAllEvents, getEventStats } from "@/lib/mock-data";
+import { getAllEventsFromDB, getEventStatsFromDB } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   Calendar,
   CheckCircle2,
@@ -11,9 +13,22 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export default function DashboardPage() {
-  const events = getAllEvents();
-  const stats = getEventStats();
+export default async function DashboardPage() {
+  const session = await auth();
+  const events = await getAllEventsFromDB();
+  const stats = await getEventStatsFromDB();
+
+  // Get user role from database
+  let userRole = null;
+  if (session?.user?.email) {
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: session.user.email, mode: 'insensitive' } },
+      select: { role: true },
+    });
+    userRole = user?.role;
+  }
+
+  const canCreateEvents = userRole === 'PRESIDENT';
 
   // Get recent events (last 5)
   const recentEvents = [...events]
@@ -39,7 +54,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <Navbar user={null} />
+      <Navbar user={session?.user} />
 
       <main className="container py-8">
         {/* Hero Section */}
@@ -174,13 +189,15 @@ export default function DashboardPage() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <a
-                  href="/events/new"
-                  className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
-                >
-                  <span className="text-2xl">+</span>
-                  <span className="font-medium">Create New Event</span>
-                </a>
+                {canCreateEvents && (
+                  <a
+                    href="/events/new"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition-opacity"
+                  >
+                    <span className="text-2xl">+</span>
+                    <span className="font-medium">Create New Event</span>
+                  </a>
+                )}
                 <a
                   href="/events"
                   className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors"
@@ -188,6 +205,15 @@ export default function DashboardPage() {
                   <span className="text-2xl">📋</span>
                   <span className="font-medium">View All Events</span>
                 </a>
+                {userRole && ['VP_CLUBS', 'ADMIN', 'SENIOR_ADMIN'].includes(userRole) && (
+                  <a
+                    href="/approvals"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 transition-opacity"
+                  >
+                    <span className="text-2xl">✓</span>
+                    <span className="font-medium">Review Approvals</span>
+                  </a>
+                )}
               </CardContent>
             </Card>
           </div>
