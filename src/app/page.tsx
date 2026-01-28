@@ -9,18 +9,18 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  XCircle,
   TrendingUp,
 } from "lucide-react";
 
 export default async function DashboardPage() {
   let events: any[] = [];
   let stats = { total: 0, pending: 0, approved: 0, completed: 0, rejected: 0 };
+  let session: any = null;
   let userRole = null;
   let error = null;
 
   try {
-    const session = await auth();
+    session = await auth();
     events = await getAllEventsFromDB();
     stats = await getEventStatsFromDB();
 
@@ -63,8 +63,6 @@ export default async function DashboardPage() {
       </div>
     );
   }
-
-  const canCreateEvents = userRole === 'PRESIDENT';
 
   // Get recent events (last 5)
   const recentEvents = [...events]
