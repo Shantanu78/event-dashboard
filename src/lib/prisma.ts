@@ -12,7 +12,14 @@ const prismaClientSingleton = () => {
         console.log("DATABASE_URL Configured:", !!url);
         console.log("DATABASE_URL Starts with:", url?.substring(0, 15));
     }
-    return new PrismaClient();
+
+    return new PrismaClient({
+        datasources: {
+            db: {
+                url: process.env.DATABASE_URL,
+            },
+        },
+    });
 };
 
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
