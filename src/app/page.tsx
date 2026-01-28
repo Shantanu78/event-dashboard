@@ -14,18 +14,54 @@ import {
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const session = await auth();
-  const events = await getAllEventsFromDB();
-  const stats = await getEventStatsFromDB();
-
-  // Get user role from database
+  let events: any[] = [];
+  let stats = { total: 0, pending: 0, approved: 0, completed: 0, rejected: 0 };
   let userRole = null;
-  if (session?.user?.email) {
-    const user = await prisma.user.findFirst({
-      where: { email: { equals: session.user.email, mode: 'insensitive' } },
-      select: { role: true },
-    });
-    userRole = user?.role;
+  let error = null;
+
+  try {
+    const session = await auth();
+    events = await getAllEventsFromDB();
+    stats = await getEventStatsFromDB();
+
+    // Get user role from database
+    if (session?.user?.email) {
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: session.user.email, mode: 'insensitive' } },
+        select: { role: true },
+      });
+      userRole = user?.role;
+    }
+  } catch (e: any) {
+    console.error("Dashboard Data Fetch Error:", e);
+    error = e.message || "Failed to load dashboard data";
+  }
+
+  const canCreateEvents = userRole === 'PRESIDENT';
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg border border-red-200">
+          <h1 className="text-xl font-bold text-red-600 mb-2">System Error</h1>
+          <p className="text-slate-600 dark:text-slate-300 mb-4">
+            The dashboard could not be loaded. This is likely due to a database connection issue or missing configuration.
+          </p>
+          <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded text-xs font-mono overflow-auto max-h-40 mb-4">
+            {error}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Troubleshooting:</p>
+            <ul className="text-sm list-disc pl-5 space-y-1 text-slate-500">
+              <li>Check <code className="bg-slate-200 px-1 rounded">DATABASE_URL</code> in Vercel Environment Variables.</li>
+              <li>Ensure database migrations have been run (tables must exist).</li>
+              <li>Check <a href="/api/diagnostics" className="text-blue-500 hover:underline">/api/diagnostics</a> for details.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const canCreateEvents = userRole === 'PRESIDENT';
