@@ -16,10 +16,16 @@ export async function GET() {
         const missing = vars.filter((v) => !process.env[v] && !process.env[`VERCEL_${v}`]); // Vercel might prefix, but usually not standard ones
         if (process.env.DATABASE_URL) {
             details.database_url_configured = "Yes";
-            // Check if it's the pooled connection (usually port 6543 for Supabase/Neon pooling)
-            details.is_pooled = process.env.DATABASE_URL.includes("op-") || process.env.DATABASE_URL.includes("pooler") ? "Likely" : "Unknown";
+            // Show masked URL for debugging (first 30 chars)
+            const url = process.env.DATABASE_URL;
+            details.database_url_preview = url.substring(0, 30) + "...";
+            details.database_url_length = url.length;
+            // Check if it's the pooled connection
+            details.is_pooled = url.includes("pooler") ? "Yes" : "No";
+            details.contains_neon = url.includes("neon") ? "Yes" : "No";
         } else {
             details.database_url_configured = "MISSING";
+            details.database_url_preview = "N/A";
         }
 
         if (process.env.AUTH_SECRET) {
