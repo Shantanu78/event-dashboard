@@ -12,6 +12,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   let events: any[] = [];
   let stats = { total: 0, pending: 0, approved: 0, completed: 0, rejected: 0 };
