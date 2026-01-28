@@ -1,75 +1,88 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    const steps = {
-        envVars: "PENDING",
-        dbConnection: "PENDING",
-        userTable: "PENDING",
-    };
-
     const details: Record<string, unknown> = {};
 
+    // List ALL database-related environment variables
+    const envVars = Object.keys(process.env).filter(key =>
+        key.includes("DATABASE") ||
+        key.includes("POSTGRES") ||
+        key.includes("NEON") ||
+        key.includes("DB_") ||
+        key.includes("AUTH")
+    );
+
+    details.all_db_env_vars = envVars;
+
+    // Show each one (masked)
+    for (const key of envVars) {
+        const val = process.env[key];
+        if (val) {
+            details[`env_${key}`] = val.substring(0, 40) + "... (len:" + val.length + ")";
+        }
+    }
+
+    // Check specific variables
+    const databaseUrl = process.env.DATABASE_URL;
+    const postgresUrl = process.env.POSTGRES_URL;
+    const postgresPrismaUrl = process.env.POSTGRES_PRISMA_URL;
+
+    details.DATABASE_URL_exists = !!databaseUrl;
+    details.POSTGRES_URL_exists = !!postgresUrl;
+    details.POSTGRES_PRISMA_URL_exists = !!postgresPrismaUrl;
+
+    if (databaseUrl) {
+        details.DATABASE_URL_preview = databaseUrl.substring(0, 50) + "...";
+        details.DATABASE_URL_length = databaseUrl.length;
+        details.DATABASE_URL_contains_neon = databaseUrl.includes("neon");
+        details.DATABASE_URL_contains_fake = databaseUrl.includes("fake");
+    }
+
+    // Try to connect using the URL we find
+    let connectionUrl = databaseUrl || postgresUrl || postgresPrismaUrl;
+    details.using_connection_from = databaseUrl ? "DATABASE_URL" : postgresUrl ? "POSTGRES_URL" : postgresPrismaUrl ? "POSTGRES_PRISMA_URL" : "NONE";
+
+    if (!connectionUrl) {
+        return NextResponse.json({
+            status: "error",
+            message: "No database URL found in any environment variable",
+            details
+        }, { status: 500 });
+    }
+
+    // Try database connection
     try {
-        // 1. Check Environment Variables
-        const databaseUrl = process.env.DATABASE_URL;
-        const authSecret = process.env.AUTH_SECRET;
+        const { PrismaClient } = await import("@prisma/client");
+        const prisma = new PrismaClient({
+            datasources: {
+                db: {
+                    url: connectionUrl,
+                },
+            },
+        });
 
-        if (databaseUrl) {
-            details.database_url_configured = "Yes";
-            details.database_url_preview = databaseUrl.substring(0, 50) + "...";
-            details.database_url_length = databaseUrl.length;
-            details.is_pooled = databaseUrl.includes("pooler") ? "Yes" : "No";
-            details.contains_neon = databaseUrl.includes("neon") ? "Yes" : "No";
-            details.contains_green_river = databaseUrl.includes("green-river") ? "Yes" : "No";
-        } else {
-            details.database_url_configured = "MISSING";
-            details.database_url_preview = "N/A";
-        }
+        await prisma.$queryRaw`SELECT 1 as test`;
+        await prisma.$disconnect();
 
-        details.auth_secret_configured = authSecret ? "Yes" : "MISSING";
-        details.node_env = process.env.NODE_ENV;
+        details.connection = "SUCCESS";
 
-        steps.envVars = "SUCCESS";
-
-        // 2. Check DB Connection
-        try {
-            const result = await prisma.$queryRaw`SELECT 1 as test`;
-            steps.dbConnection = "SUCCESS";
-            details.dbQueryResult = result;
-        } catch (e: unknown) {
-            steps.dbConnection = "FAILED";
-            const error = e as Error;
-            details.dbConnectionError = error.message;
-            throw new Error("Database Connection Failed");
-        }
-
-        // 3. Check for User Table (Schema Verification)
-        try {
-            const userCount = await prisma.user.count();
-            steps.userTable = "SUCCESS";
-            details.userCount = userCount;
-        } catch (e: unknown) {
-            steps.userTable = "FAILED";
-            const error = e as Error;
-            details.schemaError = error.message;
-            details.hint = "Tables might be missing. Run 'npx prisma migrate deploy' with production DATABASE_URL.";
-        }
-
-        return NextResponse.json({ status: "ok", steps, details }, { status: 200 });
+        return NextResponse.json({
+            status: "ok",
+            message: "Database connection successful!",
+            details
+        }, { status: 200 });
 
     } catch (error: unknown) {
         const err = error as Error;
-        return NextResponse.json(
-            {
-                status: "error",
-                message: err.message,
-                steps,
-                details
-            },
-            { status: 500 }
-        );
+        details.connection = "FAILED";
+        details.error = err.message;
+
+        return NextResponse.json({
+            status: "error",
+            message: "Database connection failed",
+            details
+        }, { status: 500 });
     }
 }
