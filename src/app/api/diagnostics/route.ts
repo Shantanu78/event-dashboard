@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     const steps = {
         envVars: "PENDING",
@@ -8,41 +10,39 @@ export async function GET() {
         userTable: "PENDING",
     };
 
-    const details: any = {};
+    const details: Record<string, unknown> = {};
 
     try {
         // 1. Check Environment Variables
-        const vars = ["DATABASE_URL", "AUTH_SECRET", "NEXTAUTH_URL"]; // NEXTAUTH_URL optional in Vercel
-        const missing = vars.filter((v) => !process.env[v] && !process.env[`VERCEL_${v}`]); // Vercel might prefix, but usually not standard ones
-        if (process.env.DATABASE_URL) {
+        const databaseUrl = process.env.DATABASE_URL;
+        const authSecret = process.env.AUTH_SECRET;
+
+        if (databaseUrl) {
             details.database_url_configured = "Yes";
-            // Show masked URL for debugging (first 30 chars)
-            const url = process.env.DATABASE_URL;
-            details.database_url_preview = url.substring(0, 30) + "...";
-            details.database_url_length = url.length;
-            // Check if it's the pooled connection
-            details.is_pooled = url.includes("pooler") ? "Yes" : "No";
-            details.contains_neon = url.includes("neon") ? "Yes" : "No";
+            details.database_url_preview = databaseUrl.substring(0, 50) + "...";
+            details.database_url_length = databaseUrl.length;
+            details.is_pooled = databaseUrl.includes("pooler") ? "Yes" : "No";
+            details.contains_neon = databaseUrl.includes("neon") ? "Yes" : "No";
+            details.contains_green_river = databaseUrl.includes("green-river") ? "Yes" : "No";
         } else {
             details.database_url_configured = "MISSING";
             details.database_url_preview = "N/A";
         }
 
-        if (process.env.AUTH_SECRET) {
-            details.auth_secret_configured = "Yes";
-        } else {
-            details.auth_secret_configured = "MISSING";
-        }
+        details.auth_secret_configured = authSecret ? "Yes" : "MISSING";
+        details.node_env = process.env.NODE_ENV;
 
         steps.envVars = "SUCCESS";
 
         // 2. Check DB Connection
         try {
-            await prisma.$queryRaw`SELECT 1`;
+            const result = await prisma.$queryRaw`SELECT 1 as test`;
             steps.dbConnection = "SUCCESS";
-        } catch (e: any) {
+            details.dbQueryResult = result;
+        } catch (e: unknown) {
             steps.dbConnection = "FAILED";
-            details.dbConnectionError = e.message;
+            const error = e as Error;
+            details.dbConnectionError = error.message;
             throw new Error("Database Connection Failed");
         }
 
@@ -51,19 +51,21 @@ export async function GET() {
             const userCount = await prisma.user.count();
             steps.userTable = "SUCCESS";
             details.userCount = userCount;
-        } catch (e: any) {
+        } catch (e: unknown) {
             steps.userTable = "FAILED";
-            details.schemaError = e.message;
-            details.hint = "Tables might be missing. Did you run 'npx prisma migrate deploy'?";
+            const error = e as Error;
+            details.schemaError = error.message;
+            details.hint = "Tables might be missing. Run 'npx prisma migrate deploy' with production DATABASE_URL.";
         }
 
         return NextResponse.json({ status: "ok", steps, details }, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const err = error as Error;
         return NextResponse.json(
             {
                 status: "error",
-                message: error.message,
+                message: err.message,
                 steps,
                 details
             },
